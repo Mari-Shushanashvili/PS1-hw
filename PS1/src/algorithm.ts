@@ -5,7 +5,7 @@
  * as described in the problem set handout.
  *
  * Please DO NOT modify the signatures of the exported functions in this file,
- * or you risk failing the autograder.
+ * or you risk failing the Didit autograder.
  */
 
 import { Flashcard, AnswerDifficulty, BucketMap } from "./flashcards";
@@ -19,8 +19,14 @@ import { Flashcard, AnswerDifficulty, BucketMap } from "./flashcards";
  * @spec.requires buckets is a valid representation of flashcard buckets.
  */
 export function toBucketSets(buckets: BucketMap): Array<Set<Flashcard>> {
-  // TODO: Implement this function
-  throw new Error("Implement me!");
+  const bucketArray: Array<Set<Flashcard>> = [];
+  const maxBucket = buckets.size > 0 ? Math.max(...buckets.keys()) : -1;
+  
+  for (let i = 0; i <= maxBucket; i++) {
+    bucketArray.push(buckets.get(i) || new Set());
+  }
+  
+  return bucketArray;
 }
 
 /**
@@ -34,8 +40,16 @@ export function toBucketSets(buckets: BucketMap): Array<Set<Flashcard>> {
 export function getBucketRange(
   buckets: Array<Set<Flashcard>>
 ): { minBucket: number; maxBucket: number } | undefined {
-  // TODO: Implement this function
-  throw new Error("Implement me!");
+  const nonEmptyBuckets = buckets
+    .map((set, index) => set.size > 0 ? index : -1)
+    .filter(index => index !== -1);
+  
+  if (nonEmptyBuckets.length === 0) return undefined;
+  
+  return {
+    minBucket: Math.min(...nonEmptyBuckets),
+    maxBucket: Math.max(...nonEmptyBuckets)
+  };
 }
 
 /**
@@ -51,8 +65,13 @@ export function practice(
   buckets: Array<Set<Flashcard>>,
   day: number
 ): Set<Flashcard> {
-  // TODO: Implement this function
-  throw new Error("Implement me!");
+  if (day < 0) throw new Error("Day number must be non-negative");
+  
+  return new Set(
+    buckets.flatMap((set, bucketIndex) => 
+      day % (2 ** bucketIndex) === 0 ? Array.from(set) : []
+    )
+  );
 }
 
 /**
@@ -62,39 +81,93 @@ export function practice(
  * @param card flashcard that was practiced.
  * @param difficulty how well the user did on the card in this practice trial.
  * @returns updated Map of learning buckets.
- * @spec.requires buckets is a valid representation of flashcard buckets.
+ * @spec requires buckets is a valid representation of flashcard buckets.
  */
 export function update(
   buckets: BucketMap,
   card: Flashcard,
   difficulty: AnswerDifficulty
 ): BucketMap {
-  // TODO: Implement this function
-  throw new Error("Implement me!");
+  const currentBucket = Array.from(buckets.entries())
+    .find(([_, cards]) => cards.has(card))?.[0];
+  
+  if (currentBucket === undefined) throw new Error("Card not found");
+
+  const bucketAdjustment = 
+    difficulty === AnswerDifficulty.Easy ? 1 : 
+    difficulty === AnswerDifficulty.Hard ? -1 : 0;
+  
+  const newBucket = Math.max(0, 
+    Math.min(currentBucket + bucketAdjustment, buckets.size - 1));
+  
+  // Create new Map to avoid mutating the original
+  const newBuckets = new Map(buckets);
+  newBuckets.get(currentBucket)?.delete(card);
+  
+  if (!newBuckets.has(newBucket)) {
+    newBuckets.set(newBucket, new Set());
+  }
+  newBuckets.get(newBucket)?.add(card);
+  
+  return newBuckets;
 }
 
 /**
- * Generates a hint for a flashcard.
+ * Generates a contextual hint for a flashcard.
  *
- * @param card flashcard to hint
- * @returns a hint for the front of the flashcard.
- * @spec.requires card is a valid Flashcard.
+ * @param card The flashcard for which a hint is needed.
+ * @returns A string providing a hint for the front of the flashcard.
+ * 
+ * @spec requires `card` is a valid instance of `Flashcard`.
+ * @spec ensures If `card.hint` is a non-empty string (ignoring whitespace), it is returned as the hint.
+ * @spec ensures If `card.hint` is empty or contains only whitespace, a generated hint is returned in the format:
+ *               `"Think about the key concepts related to [front]"`
+ * @spec ensures The output is **deterministic**—same input always yields the same output.
+ * @spec ensures The hint remains useful across various learning domains (e.g., language, science, history).
  */
 export function getHint(card: Flashcard): string {
-  // TODO: Implement this function (and strengthen the spec!)
-  throw new Error("Implement me!");
+  return card.hint.trim() || `Think about the key concepts related to ${card.front}`;
 }
 
 /**
  * Computes statistics about the user's learning progress.
  *
- * @param buckets representation of learning buckets.
- * @param history representation of user's answer history.
- * @returns statistics about learning progress.
- * @spec.requires [SPEC TO BE DEFINED]
+ * @param buckets A `BucketMap` representing the current flashcard distribution.
+ * @param history An array of past answer records, where each record contains:
+ *        - `card`: the `Flashcard` that was practiced.
+ *        - `difficulty`: an `AnswerDifficulty` representing the user's response.
+ *        - `timestamp`: a number representing the time of practice.
+ * @returns An object containing:
+ *        - `accuracyRate`: percentage of correct answers (Easy vs. total attempts).
+ *        - `bucketDistribution`: an object mapping bucket numbers to counts of flashcards.
+ *        - `averageDifficulty`: the mean difficulty of all past answers.
+ *
+ * @spec.requires `buckets` must be a valid `BucketMap`, with only non-negative integer keys.
+ * @spec.requires `history` must be an array where each entry has valid `card`, `difficulty`, and `timestamp` fields.
+ * @spec.ensures The returned object is never `null` or `undefined`.
+ * @spec.ensures If no history exists, `accuracyRate` is 0 and `averageDifficulty` is `undefined`.
  */
-export function computeProgress(buckets: any, history: any): any {
-  // Replace 'any' with appropriate types
-  // TODO: Implement this function (and define the spec!)
-  throw new Error("Implement me!");
+export function computeProgress(
+  buckets: BucketMap, 
+  history: Array<{ card: Flashcard; difficulty: AnswerDifficulty; timestamp: number }>
+) {
+  // Validate inputs
+  if (!Array.from(buckets.keys()).every(Number.isInteger)) {
+    throw new Error("All bucket keys must be integers");
+  }
+
+  const bucketDistribution = Object.fromEntries(
+    Array.from(buckets.entries()).map(([k, v]) => [k, v.size])
+  );
+
+  const difficulties = history.map(h => h.difficulty);
+  const correctCount = difficulties.filter(d => d === AnswerDifficulty.Easy).length;
+  
+  return {
+    accuracyRate: history.length ? correctCount / history.length : 0,
+    bucketDistribution,
+    averageDifficulty: difficulties.length ? 
+      difficulties.reduce((sum, d) => sum + d, 0) / difficulties.length : 
+      undefined
+  };
 }
