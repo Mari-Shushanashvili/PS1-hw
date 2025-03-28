@@ -67,11 +67,15 @@ export function practice(
 ): Set<Flashcard> {
   if (day < 0) throw new Error("Day number must be non-negative");
   
-  return new Set(
-    buckets.flatMap((set, bucketIndex) => 
-      day % (2 ** bucketIndex) === 0 ? Array.from(set) : []
-    )
-  );
+  const selectedCards = new Set<Flashcard>();
+  
+  for (let i = 0; i < buckets.length; i++) {
+    if (day % (i + 1) === 0) {  // Changed from 2**i to (i+1)
+      buckets[i]?.forEach(card => selectedCards.add(card));
+    }
+  }
+  
+  return selectedCards;
 }
 
 /**
@@ -118,12 +122,12 @@ export function update(
  * @param card The flashcard for which a hint is needed.
  * @returns A string providing a hint for the front of the flashcard.
  * 
- * @spec requires `card` is a valid instance of `Flashcard`.
- * @spec ensures If `card.hint` is a non-empty string (ignoring whitespace), it is returned as the hint.
- * @spec ensures If `card.hint` is empty or contains only whitespace, a generated hint is returned in the format:
- *               `"Think about the key concepts related to [front]"`
- * @spec ensures The output is **deterministic**—same input always yields the same output.
- * @spec ensures The hint remains useful across various learning domains (e.g., language, science, history).
+ * @spec The card must be a properly initialized Flashcard
+ * @spec If the card has a custom hint (even just one character after trimming whitespace),
+ *       that hint will be used exactly as provided
+ * @spec When no custom hint exists (empty or just whitespace), generates a standard hint
+ *       following the pattern: "Think about the key concepts related to [question]"
+ * @spec Guaranteed to always return the same hint for the same flashcard input
  */
 export function getHint(card: Flashcard): string {
   return card.hint.trim() || `Think about the key concepts related to ${card.front}`;
@@ -147,27 +151,47 @@ export function getHint(card: Flashcard): string {
  * @spec.ensures The returned object is never `null` or `undefined`.
  * @spec.ensures If no history exists, `accuracyRate` is 0 and `averageDifficulty` is `undefined`.
  */
-export function computeProgress(
-  buckets: BucketMap, 
-  history: Array<{ card: Flashcard; difficulty: AnswerDifficulty; timestamp: number }>
-) {
-  // Validate inputs
-  if (!Array.from(buckets.keys()).every(Number.isInteger)) {
-    throw new Error("All bucket keys must be integers");
-  }
+// export function computeProgress(
+//   buckets: BucketMap, 
+//   history: Array<{ card: Flashcard; difficulty: AnswerDifficulty; timestamp: number }>
+// ) {
+//   // Validate inputs
+//   if (!Array.from(buckets.keys()).every(k => Number.isInteger(k) && k >= 0)) {
+//     throw new Error("Invalid bucket keys: must be non-negative integers");
+//   }
 
-  const bucketDistribution = Object.fromEntries(
-    Array.from(buckets.entries()).map(([k, v]) => [k, v.size])
-  );
+//   if (!Array.isArray(history) || history.some(record => 
+//     !record.card || 
+//     ![AnswerDifficulty.Easy, AnswerDifficulty.Hard, AnswerDifficulty.Wrong].includes(record.difficulty) ||
+//     typeof record.timestamp !== 'number'
+//   )) {
+//     throw new Error("Invalid history data");
+//   }
 
-  const difficulties = history.map(h => h.difficulty);
-  const correctCount = difficulties.filter(d => d === AnswerDifficulty.Easy).length;
+//   const bucketDistribution = Object.fromEntries(
+//     Array.from(buckets.entries()).map(([k, v]) => [k, v.size])
+//   );
+
+//   const totalAttempts = history.length;
+//   const correctAttempts = history.filter(h => h.difficulty === AnswerDifficulty.Easy).length;
+//   const accuracyRate = totalAttempts > 0 ? correctAttempts / totalAttempts : 0;
+
+//   const difficulties = history.map(h => {
+//     switch(h.difficulty) {
+//       case AnswerDifficulty.Easy: return 1;
+//       case AnswerDifficulty.Hard: return 0.5;
+//       case AnswerDifficulty.Wrong: return 0;
+//       default: return 0;
+//     }
+//   });
   
-  return {
-    accuracyRate: history.length ? correctCount / history.length : 0,
-    bucketDistribution,
-    averageDifficulty: difficulties.length ? 
-      difficulties.reduce((sum, d) => sum + d, 0) / difficulties.length : 
-      undefined
-  };
-}
+//   const averageDifficulty = difficulties.length > 0 
+//     ? difficulties.reduce((sum, d) => sum + d, 0) / difficulties.length
+//     : undefined;
+
+//   return {
+//     accuracyRate,
+//     bucketDistribution,
+//     averageDifficulty
+//   };
+// }

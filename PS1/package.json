@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Problem Set 1 for 6.102",
   "scripts": {
-    "test": "mocha -r ts-node/register  test/*.ts",
+    "test": "mocha -r ts-node/register test/*.ts",
     "coverage": "c8 npm test",
     "coverage-report": "c8 report -r html",
     "build": "tsc",
